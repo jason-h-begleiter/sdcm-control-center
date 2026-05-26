@@ -20,6 +20,15 @@ function App() {
   const [lastTestRun, setLastTestRun] = useState(null)
   const ws = useRef(null)
 
+  const handleCopyCommand = async (command) => {
+    try {
+      await navigator.clipboard.writeText(command);
+      console.log(`Copied to clipboard: ${command}`);
+    } catch (err) {
+      console.error('Failed to copy command', err);
+    }
+  };
+
   useEffect(() => {
     ws.current = new WebSocket('ws://127.0.0.1:8000/ws')
     ws.current.onmessage = (event) => {
@@ -239,28 +248,43 @@ function App() {
                   
                   {/* Context-aware buttons based on BUILD_LOOP_REFERENCE */}
                   {selectedFlow.status === 'BACKLOG' && (
-                    <button className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold rounded border border-neutral-600 transition-colors">
-                      [ /GENERATE_INCREMENT ]
+                    <button 
+                      onClick={() => handleCopyCommand(`coda slice start ${selectedFlow.flow_id}`)}
+                      className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold rounded border border-neutral-600 transition-colors"
+                    >
+                      [ coda slice start ]
                     </button>
                   )}
 
                   {selectedFlow.status === 'ACTIVE_DEV' && (
                     <div className="space-y-2">
-                      <button className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors">
-                        Run Hooks & Test-Reviewer
+                      <button 
+                        onClick={() => handleCopyCommand(`@test-reviewer Review the tests for ${selectedFlow.flow_id}`)}
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors"
+                      >
+                        Copy @test-reviewer prompt
                       </button>
-                      <button className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-mono rounded border border-neutral-600 transition-colors">
-                        Invoke Code-Reviewer
+                      <button 
+                        onClick={() => handleCopyCommand(`@code-reviewer Review implementation for ${selectedFlow.flow_id}`)}
+                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-mono rounded border border-neutral-600 transition-colors"
+                      >
+                        Copy @code-reviewer prompt
                       </button>
                     </div>
                   )}
 
                   {(selectedFlow.status === 'STABLE' || selectedFlow.status === 'INTEGRATION') && (
                     <div className="space-y-2">
-                      <button className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(5,150,105,0.2)]">
-                        [ /coda slice review ]
+                      <button 
+                        onClick={() => handleCopyCommand(`coda slice review ${selectedFlow.flow_id}`)}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(5,150,105,0.2)]"
+                      >
+                        [ coda slice review ]
                       </button>
-                      <button className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs font-mono rounded border border-neutral-600 transition-colors">
+                      <button 
+                        onClick={() => handleCopyCommand(`/pm-finalize ${selectedFlow.flow_id}`)}
+                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs font-mono rounded border border-neutral-600 transition-colors"
+                      >
                         [ /pm-finalize ]
                       </button>
                     </div>
