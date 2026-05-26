@@ -29,6 +29,29 @@ function App() {
     }
   };
 
+  const handleOrchestrate = async (flowId, action) => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/orchestrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow_id: flowId, action: action })
+      });
+      // The backend writing the YAML will trigger Watchdog and update the UI automatically
+    } catch (err) {
+      console.error('Failed to trigger orchestrator', err);
+    }
+  };
+
+  const handleEject = async () => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/eject', { method: 'POST' });
+      // Notify the user to switch to the terminal
+      alert("Ejected! Open your terminal and type '/resume'");
+    } catch (err) {
+      console.error('Failed to eject', err);
+    }
+  };
+
   useEffect(() => {
     ws.current = new WebSocket('ws://127.0.0.1:8000/ws')
     ws.current.onmessage = (event) => {
@@ -245,26 +268,26 @@ function App() {
 
                 <div className="border-t border-neutral-800 pt-6">
                   <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3">Development Controls</div>
-                  
+
                   {/* Context-aware buttons based on BUILD_LOOP_REFERENCE */}
                   {selectedFlow.status === 'BACKLOG' && (
-                    <button 
-                      onClick={() => handleCopyCommand(`coda slice start ${selectedFlow.flow_id}`)}
-                      className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold rounded border border-neutral-600 transition-colors"
+                    <button
+                      onClick={() => handleOrchestrate(selectedFlow.flow_id, 'GENERATE_INCREMENT')}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(79,70,229,0.2)]"
                     >
-                      [ coda slice start ]
+                      Run Headless: [ GENERATE_INCREMENT ]
                     </button>
                   )}
 
                   {selectedFlow.status === 'ACTIVE_DEV' && (
                     <div className="space-y-2">
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`@test-reviewer Review the tests for ${selectedFlow.flow_id}`)}
                         className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors"
                       >
                         Copy @test-reviewer prompt
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`@code-reviewer Review implementation for ${selectedFlow.flow_id}`)}
                         className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-mono rounded border border-neutral-600 transition-colors"
                       >
@@ -275,13 +298,13 @@ function App() {
 
                   {(selectedFlow.status === 'STABLE' || selectedFlow.status === 'INTEGRATION') && (
                     <div className="space-y-2">
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`coda slice review ${selectedFlow.flow_id}`)}
                         className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(5,150,105,0.2)]"
                       >
                         [ coda slice review ]
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`/pm-finalize ${selectedFlow.flow_id}`)}
                         className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs font-mono rounded border border-neutral-600 transition-colors"
                       >
@@ -289,6 +312,14 @@ function App() {
                       </button>
                     </div>
                   )}
+
+                  {/* The universal escape hatch, visible whenever a flow is selected */}
+                  <button
+                    onClick={handleEject}
+                    className="w-full py-2 mt-6 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-700/50 text-[10px] font-mono font-bold rounded transition-colors uppercase tracking-widest"
+                  >
+                    [ Eject to Terminal ]
+                  </button>
                 </div>
 
              </div>

@@ -7,6 +7,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from pydantic import BaseModel
+import subprocess
 
 app = FastAPI()
 
@@ -93,6 +95,57 @@ class ContextHandler(FileSystemEventHandler):
             return
         print(f"🔄 File saved: {event.src_path}. Broadcasting to UI...") 
         asyncio.run_coroutine_threadsafe(broadcast_state(), self.loop)
+
+class OrchestratorRequest(BaseModel):
+    flow_id: str
+    action: str
+
+@app.post("/api/v1/orchestrate")
+async def trigger_orchestrator(req: OrchestratorRequest):
+    """
+    Writes the baton file and triggers a headless agent process.
+    """
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
+    
+    # 1. Write the baton file
+    task_state = {
+        "active_flow_id": req.flow_id,
+        "current_phase": req.action,
+        "orchestrator": "ui_headless",
+        "last_error": None,
+        "working_files": []
+    }
+    
+    with open(task_file, "w", encoding="utf-8") as f:
+        yaml.dump(task_state, f, sort_keys=False)
+        
+    print(f"🚀 Orchestrator took the baton for {req.flow_id} -> {req.action}")
+
+    # 2. Trigger the headless agent (Placeholder for actual subagent call)
+    # In a fully wired setup, you would spawn a subprocess here invoking your 
+    # specific headless Claude script, passing the active_task.yaml as input.
+    # subprocess.Popen(["claude", "run", "--file", "tools/headless_agent.py"])
+    
+    return {"status": "started", "task_file": task_file}
+
+@app.post("/api/v1/eject")
+async def eject_to_terminal():
+    """
+    The Escape Hatch. Kills headless orchestration and prepares the baton for human chat.
+    """
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
+    
+    if os.path.exists(task_file):
+        with open(task_file, "r", encoding="utf-8") as f:
+            task_state = yaml.safe_load(f)
+            
+        task_state["orchestrator"] = "human_chat"
+        
+        with open(task_file, "w", encoding="utf-8") as f:
+            yaml.dump(task_state, f, sort_keys=False)
+            
+    print("🛑 Ejected to terminal. Awaiting human input.")
+    return {"status": "ejected", "message": "Run /resume in Claude Code"}
 
 @app.on_event("startup")
 async def startup_event():
