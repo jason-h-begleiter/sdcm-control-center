@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # Set the path to watch
-WATCH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".context"))
+WATCH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "coda-ep", ".context"))
 active_connections = set()
 
 def read_json(file_path):
