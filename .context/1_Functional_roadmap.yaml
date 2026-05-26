@@ -1,0 +1,28 @@
+# /.context/1_Functional_Graph.yaml
+feature_epic: "Estate Plan Document Signing"
+
+# The AI reads this and knows exactly what exists and what permissions it holds.
+current_state:
+  entities:
+    - id: "User"
+      components: ["[Authenticated]", "[HasDraftPlan]"]
+      capabilities: [] # User has no permissions yet
+  systems:
+    - id: "DocumentViewer"
+      capabilities: ["can_read_anonymized_data"]
+
+# You define the EXACT mathematical delta of what you want to achieve.
+target_state:
+  entities:
+    - id: "User"
+      components: ["[Authenticated]", "[HasDraftPlan]", "[HasSignedPlan]"] # Added [HasSignedPlan]
+      capabilities: ["can_execute_signature"] # Added capability
+  systems:
+    - id: "SignatureEngine"
+      capabilities: ["can_read_pii", "can_write_audit_log"]
+
+# The AI Companion generates this based strict OCap resolution:
+resolution_slices:
+  - slice_id: "grant_signature_capability"
+    action: "System must grant 'can_execute_signature' to User."
+    verification: "Test: User without capability is rejected (403). User with capability proceeds."

@@ -1,1 +1,23 @@
-Test project state - whattttt - whoooop
+project_name: "SDCM Control Center MVP"
+current_phase: "UI Scaffolding"
+
+components:
+  frontend:
+    - name: "Websocket Listener"
+      status: "STABLE"
+      current_state: "Receives JSON payload from FastAPI."
+      goal_state: "Logs payload to console."
+      state_transition: []
+    - name: "Dashboard Layout"
+      status: "ACTIVE_DEV"
+      current_state: "Raw JSON is dumped on screen."
+      goal_state: "3-column grid displaying Zone 1, 2, and 3."
+      state_transition:
+        - action: "UPDATE_APP_JSX"
+          diff: "Implement Tailwind CSS grid layout."
+  backend:
+    - name: "File Watcher"
+      status: "STABLE"
+      current_state: "Detects YAML saves."
+      goal_state: "Triggers asyncio broadcast safely."
+      state_transition: []
