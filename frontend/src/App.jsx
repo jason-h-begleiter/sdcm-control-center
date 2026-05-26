@@ -17,6 +17,7 @@ function App() {
   const [graphState, setGraphState] = useState(null)
   const [manifesto, setManifesto] = useState(null)
   const [selectedFlowId, setSelectedFlowId] = useState(null)
+  const [lastTestRun, setLastTestRun] = useState(null)
   const ws = useRef(null)
 
   useEffect(() => {
@@ -25,9 +26,10 @@ function App() {
       const data = JSON.parse(event.data)
       if (data.type === 'STATE_UPDATE') {
         if (data.payload.project_state) setGraphState(data.payload.project_state);
+        if (data.payload.last_test_run) setLastTestRun(data.payload.last_test_run); 
+        
         if (data.payload.manifesto) {
           setManifesto(data.payload.manifesto);
-          // Auto-select the first flow if none is selected
           if (!selectedFlowId && data.payload.manifesto.flows?.length > 0) {
             setSelectedFlowId(data.payload.manifesto.flows[0].flow_id);
           }
@@ -210,7 +212,14 @@ function App() {
                 
                 {/* TDD Verifications */}
                 <div>
-                  <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3">Required Verifications</div>
+                <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3 flex justify-between items-center">
+                    <span>Required Verifications</span>
+                    {lastTestRun && (
+                      <span className="text-neutral-500 lowercase tracking-normal">
+                        (Last run: {lastTestRun})
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {selectedFlow.verifications?.map((v, i) => (
                       <div key={i} className="bg-neutral-900 border border-neutral-800 rounded p-2 flex items-start gap-2">
