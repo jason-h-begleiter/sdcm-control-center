@@ -1,4 +1,24 @@
 import { useEffect, useState, useRef } from 'react'
+import mermaid from 'mermaid'
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    background: '#0a0a0a',
+    primaryColor: '#0a0a0a',
+    primaryTextColor: '#e5e5e5',
+    primaryBorderColor: '#4f46e5',
+    lineColor: '#737373',
+    edgeLabelBackground: '#171717',
+    tertiaryColor: 'transparent',
+    clusterBkg: 'transparent',
+    clusterBorder: '#404040',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  flowchart: { curve: 'basis', htmlLabels: true, padding: 16, nodeSpacing: 40, rankSpacing: 60 },
+  securityLevel: 'loose',
+});
 
 // Status coloring helpers
 const getStatusColor = (status) => {
@@ -18,9 +38,11 @@ function App() {
   const [manifesto, setManifesto] = useState(null)
   const [selectedFlowId, setSelectedFlowId] = useState(null)
   const [lastTestRun, setLastTestRun] = useState(null)
-  const [activeTab, setActiveTab] = useState('library')
-  const [newEpicObjective, setNewEpicObjective] = useState('')
+  const [activeTab, setActiveTab] = useState('protocol')
+  const [intakePath, setIntakePath] = useState('')
+  const [protocolDiagram, setProtocolDiagram] = useState('')
   const ws = useRef(null)
+  const protocolRef = useRef(null)
 
   const handleCopyCommand = async (command) => {
     try {
@@ -32,15 +54,15 @@ function App() {
   };
 
   const handleScopeEpic = async () => {
-    if (!newEpicObjective) return;
+    if (!intakePath) return;
     try {
       await fetch('http://127.0.0.1:8000/api/v1/epics/scope', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objective: newEpicObjective })
+        body: JSON.stringify({ intake_file: intakePath })
       });
-      setNewEpicObjective('');
-      alert("Scoping baton passed! Open your terminal and run '/resume' to see the draft.");
+      setIntakePath('');
+      alert("Intake document passed! Open your terminal and run '/resume'.");
     } catch (err) {
       console.error('Failed to trigger scope', err);
     }
@@ -51,6 +73,28 @@ function App() {
       await fetch('http://127.0.0.1:8000/api/v1/epics/compile', { method: 'POST' });
     } catch (err) {
       console.error('Failed to trigger compile', err);
+    }
+  };
+
+  const handleExportStrategy = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/strategy/export');
+      const data = await res.json();
+
+      const geminiPrompt = `You are my stateless Strategic Product Manager/Architect.
+We will debate business logic, map subrepo boundaries, and flag privacy risks.
+
+OUTPUT CONTRACT: When we agree on a scope, you MUST output a markdown document formatted exactly to match the \`.context/_INTAKE_TEMPLATE.md\` structure. It must explicitly state domains touched, downstream dependencies, and where \`assert_no_financial_pii\` is required. Do not write application code.
+
+Here is the current state of my machine:
+
+=== CURRENT SYSTEM CONTEXT ===
+${data.context_payload}`;
+
+      await navigator.clipboard.writeText(geminiPrompt);
+      alert("Strategic prompt and system state copied! Paste it into Gemini.");
+    } catch (err) {
+      console.error('Failed to export strategy context', err);
     }
   };
 
@@ -94,6 +138,33 @@ function App() {
     return () => ws.current.close()
   }, [selectedFlowId])
 
+  useEffect(() => {
+    if (activeTab !== 'protocol') return;
+    let cancelled = false;
+    fetch('http://127.0.0.1:8000/api/v1/protocol/diagram')
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setProtocolDiagram(data.mermaid_graph); })
+      .catch(err => console.error('Failed to fetch protocol diagram', err));
+    return () => { cancelled = true; };
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'protocol' || !protocolDiagram) return;
+    let cancelled = false;
+    const renderId = `protocol-mermaid-${Date.now()}`;
+    mermaid.render(renderId, protocolDiagram)
+      .then(({ svg }) => {
+        if (!cancelled && protocolRef.current) protocolRef.current.innerHTML = svg;
+      })
+      .catch(err => {
+        console.error('mermaid render failed', err);
+        if (!cancelled && protocolRef.current) {
+          protocolRef.current.innerHTML = `<pre class="text-[10px] text-red-400 whitespace-pre-wrap text-left">${String(err?.message || err)}</pre>`;
+        }
+      });
+    return () => { cancelled = true; };
+  }, [protocolDiagram, activeTab])
+
   if (!manifesto) {
     return <div className="h-screen bg-neutral-950 flex items-center justify-center text-neutral-500 font-mono">Loading System Manifesto...</div>
   }
@@ -135,6 +206,18 @@ function App() {
           })}
           </div>
           <div className="flex gap-2 bg-neutral-900 p-1 rounded-md border border-neutral-800">
+            <button
+              onClick={() => setActiveTab('protocol')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'protocol' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              System Protocol Hub
+            </button>
+            <button
+              onClick={() => setActiveTab('strategy')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'strategy' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              Roadmap Strategy
+            </button>
             <button
               onClick={() => setActiveTab('library')}
               className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'library' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
@@ -395,30 +478,81 @@ function App() {
            )}
         </div>
         </>
+        ) : activeTab === 'protocol' ? (
+          /* ZONE 6: System Protocol Hub */
+          <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a] flex gap-8">
+             {/* Dynamic Mermaid Diagram */}
+             <div className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg p-6 shadow-xl">
+               <h2 className="text-sm font-bold text-white mb-6 font-mono uppercase tracking-wider">Dynamic Execution Topology</h2>
+               <div ref={protocolRef} className="text-center overflow-auto [&_svg]:mx-auto [&_svg]:max-w-full" />
+               {!protocolDiagram && (
+                 <div className="text-center text-neutral-600 font-mono text-xs italic mt-10">Loading topology...</div>
+               )}
+             </div>
+
+             {/* System Laws panel (Right) */}
+             <div className="w-[450px] bg-neutral-900/60 border border-neutral-800 rounded-lg p-6 font-mono">
+                <h3 className="text-xs text-neutral-500 mb-2 uppercase tracking-widest">Architectural Laws (CLAUDE.md)</h3>
+                <pre className="text-[10px] text-neutral-300 whitespace-pre-wrap leading-relaxed">
+                   - State-Driven Context Management (SDCM): Information is State.
+                   - Strict Defense-in-Depth for PII and Fin-PII.
+                   - STRICT_NO_LLM_NUMERICS.
+                   - Unified umbrella root test execution (uv run pytest).
+                   - Bounded Flows. The machine drafts; the user decides.
+                </pre>
+             </div>
+          </div>
+        ) : activeTab === 'strategy' ? (
+          /* ZONE 5: Roadmap Strategy */
+          <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
+             <h2 className="text-xl font-bold font-mono text-white mb-6 uppercase tracking-widest">Roadmap & Strategy Session</h2>
+             <div className="max-w-2xl bg-neutral-900/80 border border-neutral-800 rounded-lg p-6 shadow-sm">
+                <h3 className="text-sm font-bold text-indigo-400 mb-2 font-mono uppercase">Step 0: The State Transfer</h3>
+                <p className="text-xs text-neutral-400 mb-6 font-mono leading-relaxed">
+                  To scope features effectively, external AI models (like Gemini) need to know your architectural laws and current execution graph. Click below to bundle your local state and the strict output contract into your clipboard.
+                </p>
+                <button
+                  onClick={handleExportStrategy}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono uppercase tracking-widest font-bold rounded transition-colors shadow-[0_0_15px_rgba(79,70,229,0.2)]"
+                >
+                  [ Copy State & Prompt for Gemini ]
+                </button>
+
+                <div className="mt-6 pt-6 border-t border-neutral-800 text-[10px] text-neutral-500 font-mono">
+                  <p>1. Paste the clipboard contents into Gemini to initialize the session.</p>
+                  <p>2. Discuss your roadmap feature.</p>
+                  <p>3. Copy Gemini's output into a <code className="text-neutral-300">docs/epics/intake/*.md</code> file.</p>
+                  <p>4. Move to the <strong>Epic Board</strong> tab to compile it.</p>
+                </div>
+             </div>
+          </div>
         ) : (
           /* ZONE 4: Epic Board (Kanban / Dependency Graph) */
           <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
-             <div className="flex justify-between items-center mb-6">
-               <h2 className="text-xl font-bold font-mono text-white uppercase tracking-widest">Epic Board & Execution Graph</h2>
+             <h2 className="text-xl font-bold font-mono text-white mb-4 uppercase tracking-widest">Epic Board & Execution Graph</h2>
 
-               {/* New Action Bar */}
-               <div className="flex gap-4">
-                 <div className="flex bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
-                   <input
-                     type="text"
-                     value={newEpicObjective}
-                     onChange={(e) => setNewEpicObjective(e.target.value)}
-                     placeholder="e.g. Implement multi-party trust execution"
-                     className="bg-transparent text-xs font-mono text-white px-3 py-1.5 w-72 focus:outline-none"
-                   />
-                   <button onClick={handleScopeEpic} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono transition-colors">
-                     [ Scope Epic ]
-                   </button>
-                 </div>
-                 <button onClick={handleCompileEpics} className="px-4 py-1.5 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-xs font-mono rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                   [ Compile Approved ]
-                 </button>
-               </div>
+             {/* Intake & Action Bar */}
+             <div className="mb-8 p-4 bg-neutral-900/80 border border-neutral-800 rounded-lg shadow-sm">
+                <p className="text-xs font-mono text-neutral-400 mb-3">
+                  <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Copy <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">.context/_INTAKE_TEMPLATE.md</code> to a new file in <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code> and fill it out.
+                </p>
+                <div className="flex gap-4">
+                  <div className="flex flex-1 bg-[#050505] border border-neutral-700 rounded overflow-hidden focus-within:border-indigo-500 transition-colors">
+                    <input
+                      type="text"
+                      value={intakePath}
+                      onChange={(e) => setIntakePath(e.target.value)}
+                      placeholder="docs/epics/intake/my-feature.md"
+                      className="bg-transparent text-xs font-mono text-white px-4 py-2 w-full focus:outline-none placeholder:text-neutral-600"
+                    />
+                    <button onClick={handleScopeEpic} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-widest font-bold transition-colors whitespace-nowrap">
+                      [ Step 2: Scope Epic ]
+                    </button>
+                  </div>
+                  <button onClick={handleCompileEpics} className="px-5 py-2 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-[10px] font-mono uppercase tracking-widest font-bold rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)] whitespace-nowrap">
+                    [ Step 3: Compile Approved ]
+                  </button>
+                </div>
              </div>
              <div className="flex gap-6 overflow-x-auto pb-4">
                {['BACKLOG', 'ACTIVE_DEV', 'TESTING', 'STABLE', 'FAIL'].map(statusCol => (
