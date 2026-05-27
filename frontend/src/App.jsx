@@ -533,9 +533,17 @@ ${data.context_payload}`;
 
              {/* Intake & Action Bar */}
              <div className="mb-8 p-4 bg-neutral-900/80 border border-neutral-800 rounded-lg shadow-sm">
-                <p className="text-xs font-mono text-neutral-400 mb-3">
-                  <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Copy <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">.context/_INTAKE_TEMPLATE.md</code> to a new file in <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code> and fill it out.
-                </p>
+                <div className="space-y-2 mb-4">
+                  <p className="text-xs font-mono text-neutral-400">
+                    <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Copy <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">.context/_INTAKE_TEMPLATE.md</code> to a new file in <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code> and fill it out.
+                  </p>
+                  <p className="text-xs font-mono text-neutral-400">
+                    <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 2: Scoping —</span> Enter the file path below to run the LLM synthesis script and auto-generate technical dependencies.
+                  </p>
+                  <p className="text-xs font-mono text-neutral-400">
+                    <span className="text-emerald-400 font-bold uppercase tracking-wider">Step 3: Compilation —</span> Once the scoped output is reviewed, runs <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">python tools/build/compile_epic.py</code> to inject the approved epic into the execution board below.
+                  </p>
+                </div>
                 <div className="flex gap-4">
                   <div className="flex flex-1 bg-[#050505] border border-neutral-700 rounded overflow-hidden focus-within:border-indigo-500 transition-colors">
                     <input
@@ -546,11 +554,11 @@ ${data.context_payload}`;
                       className="bg-transparent text-xs font-mono text-white px-4 py-2 w-full focus:outline-none placeholder:text-neutral-600"
                     />
                     <button onClick={handleScopeEpic} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-widest font-bold transition-colors whitespace-nowrap">
-                      [ Step 2: Scope Epic ]
+                      [ Scope Epic ]
                     </button>
                   </div>
                   <button onClick={handleCompileEpics} className="px-5 py-2 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-[10px] font-mono uppercase tracking-widest font-bold rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)] whitespace-nowrap">
-                    [ Step 3: Compile Approved ]
+                    [ Compile Approved ]
                   </button>
                 </div>
              </div>
