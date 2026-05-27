@@ -1,4 +1,24 @@
 import { useEffect, useState, useRef } from 'react'
+import mermaid from 'mermaid'
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    background: '#0a0a0a',
+    primaryColor: '#0a0a0a',
+    primaryTextColor: '#e5e5e5',
+    primaryBorderColor: '#4f46e5',
+    lineColor: '#737373',
+    edgeLabelBackground: '#171717',
+    tertiaryColor: 'transparent',
+    clusterBkg: 'transparent',
+    clusterBorder: '#404040',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  flowchart: { curve: 'basis', htmlLabels: true, padding: 16, nodeSpacing: 40, rankSpacing: 60 },
+  securityLevel: 'loose',
+});
 
 // Status coloring helpers
 const getStatusColor = (status) => {
@@ -18,9 +38,11 @@ function App() {
   const [manifesto, setManifesto] = useState(null)
   const [selectedFlowId, setSelectedFlowId] = useState(null)
   const [lastTestRun, setLastTestRun] = useState(null)
-  const [activeTab, setActiveTab] = useState('library')
+  const [activeTab, setActiveTab] = useState('protocol')
   const [intakePath, setIntakePath] = useState('')
+  const [protocolDiagram, setProtocolDiagram] = useState('')
   const ws = useRef(null)
+  const protocolRef = useRef(null)
 
   const handleCopyCommand = async (command) => {
     try {
@@ -62,7 +84,7 @@ function App() {
       const geminiPrompt = `You are my stateless Strategic Product Manager/Architect.
 We will debate business logic, map subrepo boundaries, and flag privacy risks.
 
-OUTPUT CONTRACT: When we agree on a scope, you MUST output a markdown document formatted exactly as an "Epic Intake Document". It must explicitly state domains touched, downstream dependencies, and where \`assert_no_financial_pii\` is required. Do not write application code.
+OUTPUT CONTRACT: When we agree on a scope, you MUST output a markdown document formatted exactly to match the \`.context/_INTAKE_TEMPLATE.md\` structure. It must explicitly state domains touched, downstream dependencies, and where \`assert_no_financial_pii\` is required. Do not write application code.
 
 Here is the current state of my machine:
 
@@ -116,6 +138,33 @@ ${data.context_payload}`;
     return () => ws.current.close()
   }, [selectedFlowId])
 
+  useEffect(() => {
+    if (activeTab !== 'protocol') return;
+    let cancelled = false;
+    fetch('http://127.0.0.1:8000/api/v1/protocol/diagram')
+      .then(res => res.json())
+      .then(data => { if (!cancelled) setProtocolDiagram(data.mermaid_graph); })
+      .catch(err => console.error('Failed to fetch protocol diagram', err));
+    return () => { cancelled = true; };
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'protocol' || !protocolDiagram) return;
+    let cancelled = false;
+    const renderId = `protocol-mermaid-${Date.now()}`;
+    mermaid.render(renderId, protocolDiagram)
+      .then(({ svg }) => {
+        if (!cancelled && protocolRef.current) protocolRef.current.innerHTML = svg;
+      })
+      .catch(err => {
+        console.error('mermaid render failed', err);
+        if (!cancelled && protocolRef.current) {
+          protocolRef.current.innerHTML = `<pre class="text-[10px] text-red-400 whitespace-pre-wrap text-left">${String(err?.message || err)}</pre>`;
+        }
+      });
+    return () => { cancelled = true; };
+  }, [protocolDiagram, activeTab])
+
   if (!manifesto) {
     return <div className="h-screen bg-neutral-950 flex items-center justify-center text-neutral-500 font-mono">Loading System Manifesto...</div>
   }
@@ -157,6 +206,12 @@ ${data.context_payload}`;
           })}
           </div>
           <div className="flex gap-2 bg-neutral-900 p-1 rounded-md border border-neutral-800">
+            <button
+              onClick={() => setActiveTab('protocol')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'protocol' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              System Protocol Hub
+            </button>
             <button
               onClick={() => setActiveTab('strategy')}
               className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'strategy' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
@@ -423,6 +478,30 @@ ${data.context_payload}`;
            )}
         </div>
         </>
+        ) : activeTab === 'protocol' ? (
+          /* ZONE 6: System Protocol Hub */
+          <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a] flex gap-8">
+             {/* Dynamic Mermaid Diagram */}
+             <div className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg p-6 shadow-xl">
+               <h2 className="text-sm font-bold text-white mb-6 font-mono uppercase tracking-wider">Dynamic Execution Topology</h2>
+               <div ref={protocolRef} className="text-center overflow-auto [&_svg]:mx-auto [&_svg]:max-w-full" />
+               {!protocolDiagram && (
+                 <div className="text-center text-neutral-600 font-mono text-xs italic mt-10">Loading topology...</div>
+               )}
+             </div>
+
+             {/* System Laws panel (Right) */}
+             <div className="w-[450px] bg-neutral-900/60 border border-neutral-800 rounded-lg p-6 font-mono">
+                <h3 className="text-xs text-neutral-500 mb-2 uppercase tracking-widest">Architectural Laws (CLAUDE.md)</h3>
+                <pre className="text-[10px] text-neutral-300 whitespace-pre-wrap leading-relaxed">
+                   - State-Driven Context Management (SDCM): Information is State.
+                   - Strict Defense-in-Depth for PII and Fin-PII.
+                   - STRICT_NO_LLM_NUMERICS.
+                   - Unified umbrella root test execution (uv run pytest).
+                   - Bounded Flows. The machine drafts; the user decides.
+                </pre>
+             </div>
+          </div>
         ) : activeTab === 'strategy' ? (
           /* ZONE 5: Roadmap Strategy */
           <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
@@ -455,7 +534,7 @@ ${data.context_payload}`;
              {/* Intake & Action Bar */}
              <div className="mb-8 p-4 bg-neutral-900/80 border border-neutral-800 rounded-lg shadow-sm">
                 <p className="text-xs font-mono text-neutral-400 mb-3">
-                  <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Dump your PRD, Linear ticket text, and architectural context into a markdown file inside <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code>
+                  <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Copy <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">.context/_INTAKE_TEMPLATE.md</code> to a new file in <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code> and fill it out.
                 </p>
                 <div className="flex gap-4">
                   <div className="flex flex-1 bg-[#050505] border border-neutral-700 rounded overflow-hidden focus-within:border-indigo-500 transition-colors">

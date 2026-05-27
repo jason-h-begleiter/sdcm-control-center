@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import yaml
 import asyncio
@@ -136,6 +137,76 @@ async def export_strategy_context():
             payload += f"--- coda_ep_flows.yaml (Current Capabilities) ---\n{f.read()}\n\n"
 
     return {"context_payload": payload}
+
+@app.get("/api/v1/protocol/diagram")
+async def get_protocol_diagram():
+    """Dynamically generates a Mermaid diagram from prompt files and system state."""
+    root_dir = os.path.abspath(os.path.join(WATCH_DIR, ".."))
+    commands_dir = os.path.join(root_dir, ".claude/commands")
+
+    # 1. Base Nodes (The Boundaries)
+    mm = "graph TD\n"
+    mm += "  subspan[\"<b style='font-size:16px'>Your Brain</b>\"]:::brain\n"
+    mm += "  sdcm_ui[\"<b style='font-size:16px'>SDCM UI</b>\"]:::ui\n\n"
+    mm += "  subgraph Machine[\"<b style='font-size:16px'>Machine Execution</b>\"]\n"
+    mm += "    sub_claude_code[Claude Code / Terminal Agent]:::agent\n"
+    mm += "    sub_coda_flows_yaml(coda_ep_flows.yaml):::yaml\n"
+    mm += "    sub_active_task(active_task.yaml baton):::yaml\n"
+    mm += "    sub_watchdog[Watchdog Observer]:::python\n"
+    mm += "    sub_fastapi[FastAPI Backend]:::python\n"
+    mm += "  end\n\n"
+
+    # 2. Add Gemini (stateless PM) boundary
+    mm += "  subgraph ExternalAI[\"<b style='font-size:16px'>Gemini — Stateless Architect</b>\"]\n"
+    mm += "    sub_gemini_brain[Product Discussion]:::brain\n"
+    mm += "  end\n\n"
+
+    # 3. Dynamic Workflow Links (UI -> YAML -> Watchdog -> UI)
+    mm += "  sdcm_ui --Broadcasting State--> sub_watchdog\n"
+    mm += "  sub_watchdog --Detected YAML Write--> sub_coda_flows_yaml\n"
+
+    # 4. Map the Assembly Line Steps
+
+    # Step A: Strategy
+    mm += "  subspan --Discussion--> sub_gemini_brain\n"
+    mm += "  sub_gemini_brain --Generated Intake Doc--> subspan\n"
+
+    # Step B: Scoping (Pass baton)
+    mm += "  subspan --Saves Intake Doc path in UI--> sdcm_ui\n"
+    mm += "  sdcm_ui --Triggers /epics/scope--> sub_fastapi\n"
+    mm += "  sub_fastapi --Writes baton--> sub_active_task\n"
+    mm += "  sub_claude_code --Reads baton--> sub_active_task\n"
+
+    # Step C: Audit (Discover commands)
+    if os.path.exists(commands_dir):
+        cmds = sorted(f for f in os.listdir(commands_dir) if f.endswith(".md"))
+        for cmd_file in cmds:
+            cmd_name = cmd_file.replace(".md", "")
+            cmd_id = "sub_" + re.sub(r"[^a-zA-Z0-9_]", "_", cmd_name)
+            mm += f"  sub_claude_code --Executes--> {cmd_id}({cmd_name}.md):::prompt\n"
+            # Special casing visual flow for approval
+            if cmd_name == "pm-audit-epic":
+                 mm += f"  {cmd_id} --Approval--> subspan\n"
+
+    # Step D: Compile
+    mm += "  subspan --Trigger Compile in UI--> sdcm_ui\n"
+    mm += "  sdcm_ui --Triggers /epics/compile--> sub_fastapi\n"
+    mm += "  sub_fastapi --Executes Python Script--> compile_script[compile_epic.py]:::python\n"
+    mm += "  compile_script --Writes Stable Nodes--> sub_coda_flows_yaml\n"
+
+    # 5. Define Styling
+    mm += "  classDef brain fill:#0a0a0a,stroke:#4f46e5,stroke-width:2px,color:#fff,rx:10,ry:10;\n"
+    mm += "  classDef ui fill:#0a0a0a,stroke:#db2777,stroke-width:2px,color:#fff,rx:10,ry:10;\n"
+    mm += "  classDef agent fill:#0a0a0a,stroke:#ca8a04,stroke-width:2px,color:#fff,rx:10,ry:10;\n"
+    mm += "  classDef yaml fill:#0a0a0a,stroke:#374151,stroke-width:1px,stroke-dasharray: 5 5,color:#d1d5db;\n"
+    mm += "  classDef prompt fill:#0a0a0a,stroke:#374151,stroke-width:1px,color:#9ca3af;\n"
+    mm += "  classDef python fill:#0a0a0a,stroke:#10b981,stroke-width:2px,color:#fff,rx:10,ry:10;\n"
+
+    # Transparent subgraph fills so cross-cluster edges remain visible
+    mm += "  style Machine fill:transparent,stroke:#404040,stroke-width:1px,stroke-dasharray:4 4,color:#a3a3a3;\n"
+    mm += "  style ExternalAI fill:transparent,stroke:#404040,stroke-width:1px,stroke-dasharray:4 4,color:#a3a3a3;\n"
+
+    return {"mermaid_graph": mm}
 
 class OrchestratorRequest(BaseModel):
     flow_id: str
