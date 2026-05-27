@@ -54,6 +54,28 @@ function App() {
     }
   };
 
+  const handleExportStrategy = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/strategy/export');
+      const data = await res.json();
+
+      const geminiPrompt = `You are my stateless Strategic Product Manager/Architect.
+We will debate business logic, map subrepo boundaries, and flag privacy risks.
+
+OUTPUT CONTRACT: When we agree on a scope, you MUST output a markdown document formatted exactly as an "Epic Intake Document". It must explicitly state domains touched, downstream dependencies, and where \`assert_no_financial_pii\` is required. Do not write application code.
+
+Here is the current state of my machine:
+
+=== CURRENT SYSTEM CONTEXT ===
+${data.context_payload}`;
+
+      await navigator.clipboard.writeText(geminiPrompt);
+      alert("Strategic prompt and system state copied! Paste it into Gemini.");
+    } catch (err) {
+      console.error('Failed to export strategy context', err);
+    }
+  };
+
   const handleOrchestrate = async (flowId, action) => {
     try {
       await fetch('http://127.0.0.1:8000/api/v1/orchestrate', {
@@ -135,6 +157,12 @@ function App() {
           })}
           </div>
           <div className="flex gap-2 bg-neutral-900 p-1 rounded-md border border-neutral-800">
+            <button
+              onClick={() => setActiveTab('strategy')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'strategy' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              Roadmap Strategy
+            </button>
             <button
               onClick={() => setActiveTab('library')}
               className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'library' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
@@ -395,6 +423,30 @@ function App() {
            )}
         </div>
         </>
+        ) : activeTab === 'strategy' ? (
+          /* ZONE 5: Roadmap Strategy */
+          <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
+             <h2 className="text-xl font-bold font-mono text-white mb-6 uppercase tracking-widest">Roadmap & Strategy Session</h2>
+             <div className="max-w-2xl bg-neutral-900/80 border border-neutral-800 rounded-lg p-6 shadow-sm">
+                <h3 className="text-sm font-bold text-indigo-400 mb-2 font-mono uppercase">Step 0: The State Transfer</h3>
+                <p className="text-xs text-neutral-400 mb-6 font-mono leading-relaxed">
+                  To scope features effectively, external AI models (like Gemini) need to know your architectural laws and current execution graph. Click below to bundle your local state and the strict output contract into your clipboard.
+                </p>
+                <button
+                  onClick={handleExportStrategy}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono uppercase tracking-widest font-bold rounded transition-colors shadow-[0_0_15px_rgba(79,70,229,0.2)]"
+                >
+                  [ Copy State & Prompt for Gemini ]
+                </button>
+
+                <div className="mt-6 pt-6 border-t border-neutral-800 text-[10px] text-neutral-500 font-mono">
+                  <p>1. Paste the clipboard contents into Gemini to initialize the session.</p>
+                  <p>2. Discuss your roadmap feature.</p>
+                  <p>3. Copy Gemini's output into a <code className="text-neutral-300">docs/epics/intake/*.md</code> file.</p>
+                  <p>4. Move to the <strong>Epic Board</strong> tab to compile it.</p>
+                </div>
+             </div>
+          </div>
         ) : (
           /* ZONE 4: Epic Board (Kanban / Dependency Graph) */
           <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">

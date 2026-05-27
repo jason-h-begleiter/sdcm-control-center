@@ -120,6 +120,23 @@ async def trigger_compile():
     subprocess.run(["python", "tools/build/compile_epic.py"], check=False)
     return {"status": "compile_triggered"}
 
+@app.get("/api/v1/strategy/export")
+async def export_strategy_context():
+    """Reads the current architectural state and passes it to the frontend."""
+    root_dir = os.path.abspath(os.path.join(WATCH_DIR, ".."))
+    claude_md = os.path.join(root_dir, "CLAUDE.md")
+    flows_yaml = os.path.join(WATCH_DIR, "coda_ep_flows.yaml")
+
+    payload = ""
+    if os.path.exists(claude_md):
+        with open(claude_md, "r", encoding="utf-8") as f:
+            payload += f"--- CLAUDE.md (Architectural Rules) ---\n{f.read()}\n\n"
+    if os.path.exists(flows_yaml):
+        with open(flows_yaml, "r", encoding="utf-8") as f:
+            payload += f"--- coda_ep_flows.yaml (Current Capabilities) ---\n{f.read()}\n\n"
+
+    return {"context_payload": payload}
+
 class OrchestratorRequest(BaseModel):
     flow_id: str
     action: str
