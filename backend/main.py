@@ -97,18 +97,18 @@ class ContextHandler(FileSystemEventHandler):
         asyncio.run_coroutine_threadsafe(broadcast_state(), self.loop)
 
 class ScopeRequest(BaseModel):
-    objective: str
+    intake_file: str
 
 @app.post("/api/v1/epics/scope")
 async def trigger_scope(req: ScopeRequest):
-    """Hands the baton to the terminal agent to run /pm-scope-epic."""
+    """Hands the baton to the terminal agent to run /pm-scope-epic with the intake document."""
     task_file = os.path.join(WATCH_DIR, "active_task.yaml")
     task_state = {
         "active_flow_id": "EPIC_SCOPING",
-        "current_phase": f"/pm-scope-epic '{req.objective}'",
+        "current_phase": f"/pm-scope-epic '{req.intake_file}'",
         "orchestrator": "human_chat",
         "last_error": None,
-        "working_files": [".context/_EPIC_TEMPLATE.yaml"]
+        "working_files": [".context/_EPIC_TEMPLATE.yaml", req.intake_file]
     }
     with open(task_file, "w", encoding="utf-8") as f:
         yaml.dump(task_state, f, sort_keys=False)

@@ -19,7 +19,7 @@ function App() {
   const [selectedFlowId, setSelectedFlowId] = useState(null)
   const [lastTestRun, setLastTestRun] = useState(null)
   const [activeTab, setActiveTab] = useState('library')
-  const [newEpicObjective, setNewEpicObjective] = useState('')
+  const [intakePath, setIntakePath] = useState('')
   const ws = useRef(null)
 
   const handleCopyCommand = async (command) => {
@@ -32,15 +32,15 @@ function App() {
   };
 
   const handleScopeEpic = async () => {
-    if (!newEpicObjective) return;
+    if (!intakePath) return;
     try {
       await fetch('http://127.0.0.1:8000/api/v1/epics/scope', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objective: newEpicObjective })
+        body: JSON.stringify({ intake_file: intakePath })
       });
-      setNewEpicObjective('');
-      alert("Scoping baton passed! Open your terminal and run '/resume' to see the draft.");
+      setIntakePath('');
+      alert("Intake document passed! Open your terminal and run '/resume'.");
     } catch (err) {
       console.error('Failed to trigger scope', err);
     }
@@ -398,27 +398,30 @@ function App() {
         ) : (
           /* ZONE 4: Epic Board (Kanban / Dependency Graph) */
           <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
-             <div className="flex justify-between items-center mb-6">
-               <h2 className="text-xl font-bold font-mono text-white uppercase tracking-widest">Epic Board & Execution Graph</h2>
+             <h2 className="text-xl font-bold font-mono text-white mb-4 uppercase tracking-widest">Epic Board & Execution Graph</h2>
 
-               {/* New Action Bar */}
-               <div className="flex gap-4">
-                 <div className="flex bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
-                   <input
-                     type="text"
-                     value={newEpicObjective}
-                     onChange={(e) => setNewEpicObjective(e.target.value)}
-                     placeholder="e.g. Implement multi-party trust execution"
-                     className="bg-transparent text-xs font-mono text-white px-3 py-1.5 w-72 focus:outline-none"
-                   />
-                   <button onClick={handleScopeEpic} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono transition-colors">
-                     [ Scope Epic ]
-                   </button>
-                 </div>
-                 <button onClick={handleCompileEpics} className="px-4 py-1.5 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-xs font-mono rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                   [ Compile Approved ]
-                 </button>
-               </div>
+             {/* Intake & Action Bar */}
+             <div className="mb-8 p-4 bg-neutral-900/80 border border-neutral-800 rounded-lg shadow-sm">
+                <p className="text-xs font-mono text-neutral-400 mb-3">
+                  <span className="text-indigo-400 font-bold uppercase tracking-wider">Step 1: Ideation —</span> Dump your PRD, Linear ticket text, and architectural context into a markdown file inside <code className="text-neutral-200 bg-black px-1.5 py-0.5 rounded border border-neutral-800">docs/epics/intake/</code>
+                </p>
+                <div className="flex gap-4">
+                  <div className="flex flex-1 bg-[#050505] border border-neutral-700 rounded overflow-hidden focus-within:border-indigo-500 transition-colors">
+                    <input
+                      type="text"
+                      value={intakePath}
+                      onChange={(e) => setIntakePath(e.target.value)}
+                      placeholder="docs/epics/intake/my-feature.md"
+                      className="bg-transparent text-xs font-mono text-white px-4 py-2 w-full focus:outline-none placeholder:text-neutral-600"
+                    />
+                    <button onClick={handleScopeEpic} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-widest font-bold transition-colors whitespace-nowrap">
+                      [ Step 2: Scope Epic ]
+                    </button>
+                  </div>
+                  <button onClick={handleCompileEpics} className="px-5 py-2 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-[10px] font-mono uppercase tracking-widest font-bold rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)] whitespace-nowrap">
+                    [ Step 3: Compile Approved ]
+                  </button>
+                </div>
              </div>
              <div className="flex gap-6 overflow-x-auto pb-4">
                {['BACKLOG', 'ACTIVE_DEV', 'TESTING', 'STABLE', 'FAIL'].map(statusCol => (
