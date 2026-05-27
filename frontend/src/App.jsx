@@ -18,6 +18,7 @@ function App() {
   const [manifesto, setManifesto] = useState(null)
   const [selectedFlowId, setSelectedFlowId] = useState(null)
   const [lastTestRun, setLastTestRun] = useState(null)
+  const [activeTab, setActiveTab] = useState('library')
   const ws = useRef(null)
 
   const handleCopyCommand = async (command) => {
@@ -66,7 +67,8 @@ function App() {
         <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider mb-2">
           SDCM-0: System Capability Manifesto — Global Health
         </div>
-        <div className="flex gap-8">
+        <div className="flex gap-8 items-end justify-between">
+          <div className="flex gap-8 flex-1">
           {domains.map(domain => {
             const domainFlows = flows.filter(f => f.domain === domain);
             const stableCount = domainFlows.filter(f => f.status === 'STABLE').length;
@@ -86,11 +88,27 @@ function App() {
               </div>
             )
           })}
+          </div>
+          <div className="flex gap-2 bg-neutral-900 p-1 rounded-md border border-neutral-800">
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'library' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              Operations Library
+            </button>
+            <button
+              onClick={() => setActiveTab('epic')}
+              className={`px-4 py-1.5 text-xs font-mono rounded ${activeTab === 'epic' ? 'bg-indigo-600 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              Epic Board
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        
+        {activeTab === 'library' ? (
+          <>
         {/* ZONE 1: Operations Library (Left Sidebar) */}
         <div className="w-80 border-r border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-neutral-800">
@@ -222,7 +240,21 @@ function App() {
                 {/* TDD Verifications */}
                 <div>
                 <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3 flex justify-between items-center">
-                    <span>Required Verifications</span>
+                    <div className="flex items-center gap-3">
+                      <span>Required Verifications</span>
+                      {selectedFlow.verifications?.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const testNames = selectedFlow.verifications.map(v => v.test).join(" or ");
+                            handleCopyCommand(`uv run pytest ${selectedFlow.domain}/tests/ -k "${testNames}" --json-report --json-report-file=.context/test_results.json`);
+                          }}
+                          className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded border border-neutral-600 transition-colors cursor-pointer"
+                          title="Run all verifications for this flow at once"
+                        >
+                          [ Run All ]
+                        </button>
+                      )}
+                    </div>
                     {lastTestRun && (
                       <span className="text-neutral-500 lowercase tracking-normal">
                         (Last run: {lastTestRun})
@@ -296,7 +328,49 @@ function App() {
              <div className="text-center text-neutral-600 text-xs italic mt-10 font-mono">No flow selected.</div>
            )}
         </div>
+        </>
+        ) : (
+          /* ZONE 4: Epic Board (Kanban / Dependency Graph) */
+          <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
+             <h2 className="text-xl font-bold font-mono text-white mb-6 uppercase tracking-widest">Epic Board & Execution Graph</h2>
+             <div className="flex gap-6 overflow-x-auto pb-4">
+               {['BACKLOG', 'ACTIVE_DEV', 'TESTING', 'STABLE', 'FAIL'].map(statusCol => (
+                 <div key={statusCol} className="w-80 flex-shrink-0 flex flex-col bg-neutral-900/40 rounded-lg border border-neutral-800 p-4">
+                   <h3 className={`text-xs font-mono uppercase tracking-wider mb-4 border-b border-neutral-800 pb-2 ${getStatusColor(statusCol)}`}>
+                     {statusCol} ({flows.filter(f => f.status === statusCol).length})
+                   </h3>
+                   <div className="space-y-3 flex-1 overflow-y-auto">
+                     {flows.filter(f => f.status === statusCol).map(flow => {
+                       const dependencies = flow.depends_on || [];
+                       const blockedBy = dependencies.filter(depId => {
+                         const depFlow = flows.find(f => f.flow_id === depId);
+                         return depFlow && depFlow.status !== 'STABLE';
+                       });
+                       const isBlocked = blockedBy.length > 0;
 
+                       return (
+                         <div key={flow.flow_id} className={`p-3 rounded border bg-neutral-900 ${isBlocked ? 'border-red-900/50 opacity-75' : 'border-neutral-700'}`}>
+                           <div className="flex justify-between items-start mb-2">
+                             <span className="text-xs font-mono text-neutral-200">{flow.flow_id}</span>
+                             <span className="text-[9px] text-neutral-500 font-mono px-1 border border-neutral-700 rounded">{flow.epic_id || 'NO-EPIC'}</span>
+                           </div>
+                           {dependencies.length > 0 && (
+                             <div className="mt-2 text-[10px] font-mono">
+                               <span className="text-neutral-500">Depends on: </span>
+                               {dependencies.map(dep => (
+                                 <span key={dep} className={`${blockedBy.includes(dep) ? 'text-red-400' : 'text-emerald-400'} mr-1`}>[{dep}]</span>
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       )
+                     })}
+                   </div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        )}
       </div>
     </div>
   )
