@@ -245,7 +245,21 @@ function App() {
                 {/* TDD Verifications */}
                 <div>
                 <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3 flex justify-between items-center">
-                    <span>Required Verifications</span>
+                    <div className="flex items-center gap-3">
+                      <span>Required Verifications</span>
+                      {selectedFlow.verifications?.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const testNames = selectedFlow.verifications.map(v => v.test).join(" or ");
+                            handleCopyCommand(`uv run pytest ${selectedFlow.domain}/tests/ -k "${testNames}" --json-report --json-report-file=.context/test_results.json`);
+                          }}
+                          className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded border border-neutral-600 transition-colors cursor-pointer"
+                          title="Run all verifications for this flow at once"
+                        >
+                          [ Run All ]
+                        </button>
+                      )}
+                    </div>
                     {lastTestRun && (
                       <span className="text-neutral-500 lowercase tracking-normal">
                         (Last run: {lastTestRun})
@@ -323,24 +337,6 @@ function App() {
                           [ /pm-finalize ] (Audits Clear)
                         </button>
                       </div>
-                    </div>
-                  )}
-
-                  {(selectedFlow.status === 'STABLE' || selectedFlow.status === 'INTEGRATION') && (
-                    <div className="space-y-2">
-                      {/* Using your existing coda-pm workflows */}
-                      <button
-                        onClick={() => handleCopyCommand(`/pm-finalize ${selectedFlow.flow_id}`)}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(5,150,105,0.2)]"
-                      >
-                        [ /pm-finalize ]
-                      </button>
-                      <button
-                        onClick={() => handleCopyCommand(`/pm-plan-next`)}
-                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs font-mono rounded border border-neutral-600 transition-colors"
-                      >
-                        [ /pm-plan-next ]
-                      </button>
                     </div>
                   )}
 
