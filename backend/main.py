@@ -3,8 +3,10 @@ import json
 import yaml
 import asyncio
 import datetime
+import subprocess
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -93,6 +95,30 @@ class ContextHandler(FileSystemEventHandler):
             return
         print(f"🔄 File saved: {event.src_path}. Broadcasting to UI...") 
         asyncio.run_coroutine_threadsafe(broadcast_state(), self.loop)
+
+class ScopeRequest(BaseModel):
+    objective: str
+
+@app.post("/api/v1/epics/scope")
+async def trigger_scope(req: ScopeRequest):
+    """Hands the baton to the terminal agent to run /pm-scope-epic."""
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
+    task_state = {
+        "active_flow_id": "EPIC_SCOPING",
+        "current_phase": f"/pm-scope-epic '{req.objective}'",
+        "orchestrator": "human_chat",
+        "last_error": None,
+        "working_files": [".context/_EPIC_TEMPLATE.yaml"]
+    }
+    with open(task_file, "w", encoding="utf-8") as f:
+        yaml.dump(task_state, f, sort_keys=False)
+    return {"status": "started", "task_file": task_file}
+
+@app.post("/api/v1/epics/compile")
+async def trigger_compile():
+    """Runs the deterministic python script to absorb APPROVED_BY_AUDITOR epics."""
+    subprocess.run(["python", "tools/build/compile_epic.py"], check=False)
+    return {"status": "compile_triggered"}
 
 @app.on_event("startup")
 async def startup_event():

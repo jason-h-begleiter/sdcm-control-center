@@ -19,6 +19,7 @@ function App() {
   const [selectedFlowId, setSelectedFlowId] = useState(null)
   const [lastTestRun, setLastTestRun] = useState(null)
   const [activeTab, setActiveTab] = useState('library')
+  const [newEpicObjective, setNewEpicObjective] = useState('')
   const ws = useRef(null)
 
   const handleCopyCommand = async (command) => {
@@ -27,6 +28,29 @@ function App() {
       console.log(`Copied to clipboard: ${command}`);
     } catch (err) {
       console.error('Failed to copy command', err);
+    }
+  };
+
+  const handleScopeEpic = async () => {
+    if (!newEpicObjective) return;
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/epics/scope', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objective: newEpicObjective })
+      });
+      setNewEpicObjective('');
+      alert("Scoping baton passed! Open your terminal and run '/resume' to see the draft.");
+    } catch (err) {
+      console.error('Failed to trigger scope', err);
+    }
+  };
+
+  const handleCompileEpics = async () => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/epics/compile', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to trigger compile', err);
     }
   };
 
@@ -332,7 +356,28 @@ function App() {
         ) : (
           /* ZONE 4: Epic Board (Kanban / Dependency Graph) */
           <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
-             <h2 className="text-xl font-bold font-mono text-white mb-6 uppercase tracking-widest">Epic Board & Execution Graph</h2>
+             <div className="flex justify-between items-center mb-6">
+               <h2 className="text-xl font-bold font-mono text-white uppercase tracking-widest">Epic Board & Execution Graph</h2>
+
+               {/* New Action Bar */}
+               <div className="flex gap-4">
+                 <div className="flex bg-neutral-900 border border-neutral-800 rounded overflow-hidden">
+                   <input
+                     type="text"
+                     value={newEpicObjective}
+                     onChange={(e) => setNewEpicObjective(e.target.value)}
+                     placeholder="e.g. Implement multi-party trust execution"
+                     className="bg-transparent text-xs font-mono text-white px-3 py-1.5 w-72 focus:outline-none"
+                   />
+                   <button onClick={handleScopeEpic} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono transition-colors">
+                     [ Scope Epic ]
+                   </button>
+                 </div>
+                 <button onClick={handleCompileEpics} className="px-4 py-1.5 bg-emerald-900/40 border border-emerald-700/50 hover:bg-emerald-800/60 text-emerald-400 text-xs font-mono rounded transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                   [ Compile Approved ]
+                 </button>
+               </div>
+             </div>
              <div className="flex gap-6 overflow-x-auto pb-4">
                {['BACKLOG', 'ACTIVE_DEV', 'TESTING', 'STABLE', 'FAIL'].map(statusCol => (
                  <div key={statusCol} className="w-80 flex-shrink-0 flex flex-col bg-neutral-900/40 rounded-lg border border-neutral-800 p-4">
