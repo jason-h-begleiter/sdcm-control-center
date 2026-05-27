@@ -103,11 +103,10 @@ class OrchestratorRequest(BaseModel):
 @app.post("/api/v1/orchestrate")
 async def trigger_orchestrator(req: OrchestratorRequest):
     """
-    Writes the baton file and triggers a headless agent process.
+    Writes the baton file, updates the manifesto status, and triggers a headless agent.
     """
-    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
-    
     # 1. Write the baton file
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
     task_state = {
         "active_flow_id": req.flow_id,
         "current_phase": req.action,
@@ -119,13 +118,21 @@ async def trigger_orchestrator(req: OrchestratorRequest):
     with open(task_file, "w", encoding="utf-8") as f:
         yaml.dump(task_state, f, sort_keys=False)
         
+    # 2. Update the manifesto status to ACTIVE_DEV
+    manifesto_file = os.path.join(WATCH_DIR, "coda_ep_flows.yaml")
+    if os.path.exists(manifesto_file):
+        with open(manifesto_file, "r", encoding="utf-8") as f:
+            manifesto_data = yaml.safe_load(f)
+            
+        for flow in manifesto_data.get("flows", []):
+            if flow.get("flow_id") == req.flow_id:
+                flow["status"] = "ACTIVE_DEV"
+                break
+                
+        with open(manifesto_file, "w", encoding="utf-8") as f:
+            yaml.dump(manifesto_data, f, sort_keys=False)
+        
     print(f"🚀 Orchestrator took the baton for {req.flow_id} -> {req.action}")
-
-    # 2. Trigger the headless agent (Placeholder for actual subagent call)
-    # In a fully wired setup, you would spawn a subprocess here invoking your 
-    # specific headless Claude script, passing the active_task.yaml as input.
-    # subprocess.Popen(["claude", "run", "--file", "tools/headless_agent.py"])
-    
     return {"status": "started", "task_file": task_file}
 
 @app.post("/api/v1/eject")
