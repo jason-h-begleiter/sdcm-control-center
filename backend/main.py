@@ -127,6 +127,7 @@ async def export_strategy_context():
     root_dir = os.path.abspath(os.path.join(WATCH_DIR, ".."))
     claude_md = os.path.join(root_dir, "CLAUDE.md")
     flows_yaml = os.path.join(WATCH_DIR, "coda_ep_flows.yaml")
+    intake_template = os.path.join(WATCH_DIR, "_INTAKE_TEMPLATE.md")
 
     payload = ""
     if os.path.exists(claude_md):
@@ -135,6 +136,12 @@ async def export_strategy_context():
     if os.path.exists(flows_yaml):
         with open(flows_yaml, "r", encoding="utf-8") as f:
             payload += f"--- coda_ep_flows.yaml (Current Capabilities) ---\n{f.read()}\n\n"
+    if os.path.exists(intake_template):
+        with open(intake_template, "r", encoding="utf-8") as f:
+            payload += (
+                "--- _INTAKE_TEMPLATE.md (YOUR OUTPUT CONTRACT — fill this in verbatim) ---\n"
+                f"{f.read()}\n\n"
+            )
 
     return {"context_payload": payload}
 

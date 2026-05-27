@@ -84,7 +84,7 @@ function App() {
       const geminiPrompt = `You are my stateless Strategic Product Manager/Architect.
 We will debate business logic, map subrepo boundaries, and flag privacy risks.
 
-OUTPUT CONTRACT: When we agree on a scope, you MUST output a markdown document formatted exactly to match the \`.context/_INTAKE_TEMPLATE.md\` structure. It must explicitly state domains touched, downstream dependencies, and where \`assert_no_financial_pii\` is required. Do not write application code.
+OUTPUT CONTRACT: When we agree on a scope, output a markdown document that fills in the \`_INTAKE_TEMPLATE.md\` form embedded below — verbatim section structure, following its "Output discipline" preamble exactly (quote don't paraphrase, reuse existing vocabulary, stay above the YAML layer, mark unknowns with [TBD — see §8]). Do not write application code.
 
 Here is the current state of my machine:
 
