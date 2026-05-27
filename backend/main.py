@@ -120,6 +120,64 @@ async def trigger_compile():
     subprocess.run(["python", "tools/build/compile_epic.py"], check=False)
     return {"status": "compile_triggered"}
 
+class OrchestratorRequest(BaseModel):
+    flow_id: str
+    action: str
+
+@app.post("/api/v1/orchestrate")
+async def trigger_orchestrator(req: OrchestratorRequest):
+    """
+    Writes the baton file, updates the manifesto status, and triggers a headless agent.
+    """
+    # 1. Write the baton file
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
+    task_state = {
+        "active_flow_id": req.flow_id,
+        "current_phase": req.action,
+        "orchestrator": "ui_headless",
+        "last_error": None,
+        "working_files": []
+    }
+
+    with open(task_file, "w", encoding="utf-8") as f:
+        yaml.dump(task_state, f, sort_keys=False)
+
+    # 2. Update the manifesto status to ACTIVE_DEV
+    manifesto_file = os.path.join(WATCH_DIR, "coda_ep_flows.yaml")
+    if os.path.exists(manifesto_file):
+        with open(manifesto_file, "r", encoding="utf-8") as f:
+            manifesto_data = yaml.safe_load(f)
+
+        for flow in manifesto_data.get("flows", []):
+            if flow.get("flow_id") == req.flow_id:
+                flow["status"] = "ACTIVE_DEV"
+                break
+
+        with open(manifesto_file, "w", encoding="utf-8") as f:
+            yaml.dump(manifesto_data, f, sort_keys=False)
+
+    print(f"🚀 Orchestrator took the baton for {req.flow_id} -> {req.action}")
+    return {"status": "started", "task_file": task_file}
+
+@app.post("/api/v1/eject")
+async def eject_to_terminal():
+    """
+    The Escape Hatch. Kills headless orchestration and prepares the baton for human chat.
+    """
+    task_file = os.path.join(WATCH_DIR, "active_task.yaml")
+
+    if os.path.exists(task_file):
+        with open(task_file, "r", encoding="utf-8") as f:
+            task_state = yaml.safe_load(f)
+
+        task_state["orchestrator"] = "human_chat"
+
+        with open(task_file, "w", encoding="utf-8") as f:
+            yaml.dump(task_state, f, sort_keys=False)
+
+    print("🛑 Ejected to terminal. Awaiting human input.")
+    return {"status": "ejected", "message": "Run /resume in Claude Code"}
+
 @app.on_event("startup")
 async def startup_event():
     os.makedirs(WATCH_DIR, exist_ok=True)

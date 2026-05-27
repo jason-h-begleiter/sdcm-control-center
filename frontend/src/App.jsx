@@ -54,6 +54,27 @@ function App() {
     }
   };
 
+  const handleOrchestrate = async (flowId, action) => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/orchestrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow_id: flowId, action: action })
+      });
+    } catch (err) {
+      console.error('Failed to trigger orchestrator', err);
+    }
+  };
+
+  const handleEject = async () => {
+    try {
+      await fetch('http://127.0.0.1:8000/api/v1/eject', { method: 'POST' });
+      alert("Ejected! Open your terminal and type '/resume'");
+    } catch (err) {
+      console.error('Failed to eject', err);
+    }
+  };
+
   useEffect(() => {
     ws.current = new WebSocket('ws://127.0.0.1:8000/ws')
     ws.current.onmessage = (event) => {
@@ -287,64 +308,85 @@ function App() {
                   </div>
                   <div className="space-y-2">
                     {selectedFlow.verifications?.map((v, i) => (
-                      <div key={i} className="bg-neutral-900 border border-neutral-800 rounded p-2 flex items-start gap-2">
-                        <span className={`text-[10px] mt-0.5 ${getStatusColor(v.state)}`}>
+                      <button
+                        key={i}
+                        onClick={() => handleCopyCommand(`uv run pytest ${selectedFlow.domain}/tests/ -k "${v.test}" --json-report --json-report-file=.context/test_results.json`)}
+                        className="w-full text-left bg-neutral-900 border border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/50 rounded p-2 flex items-start gap-2 transition-all cursor-pointer group shadow-sm"
+                        title="Copy pytest command"
+                      >
+                        <span className={`text-[10px] mt-0.5 flex-shrink-0 ${getStatusColor(v.state)}`}>
                           {v.state === 'PASS' ? '✅' : '❌'}
                         </span>
-                        <span className="text-[10px] font-mono text-neutral-300 break-all leading-tight">
-                          {v.test}
-                        </span>
-                      </div>
+                        <div className="flex-1 overflow-hidden">
+                          <div className="text-[10px] font-mono text-neutral-300 break-all leading-tight group-hover:text-indigo-300 transition-colors">
+                            {v.test}
+                          </div>
+                          <div className="text-[8px] text-neutral-500 font-mono mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            [ Click to copy test command ]
+                          </div>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
 
                 <div className="border-t border-neutral-800 pt-6">
                   <div className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mb-3">Development Controls</div>
-                  
-                  {/* Context-aware buttons based on BUILD_LOOP_REFERENCE */}
+
+                  {/* Context-aware buttons based on your Archive.zip workflows */}
                   {selectedFlow.status === 'BACKLOG' && (
-                    <button 
-                      onClick={() => handleCopyCommand(`coda slice start ${selectedFlow.flow_id}`)}
-                      className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-mono font-bold rounded border border-neutral-600 transition-colors"
+                    <button
+                      onClick={() => handleOrchestrate(selectedFlow.flow_id, 'GENERATE_INCREMENT')}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(79,70,229,0.2)]"
                     >
-                      [ coda slice start ]
+                      Run Headless: [ GENERATE_INCREMENT ]
                     </button>
                   )}
 
                   {selectedFlow.status === 'ACTIVE_DEV' && (
                     <div className="space-y-2">
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`@test-reviewer Review the tests for ${selectedFlow.flow_id}`)}
-                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold rounded transition-colors"
+                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-mono font-bold rounded border border-neutral-600 transition-colors"
                       >
                         Copy @test-reviewer prompt
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleCopyCommand(`@code-reviewer Review implementation for ${selectedFlow.flow_id}`)}
                         className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-mono rounded border border-neutral-600 transition-colors"
                       >
-                        Copy @code-reviewer prompt
+                        Copy @code-reviewer
                       </button>
+                      <button
+                        onClick={() => handleCopyCommand(`Run the /adversarial-review skill for ${selectedFlow.flow_id}.`)}
+                        className="w-full py-2 bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-300 text-xs font-mono rounded border border-indigo-700/50 transition-colors shadow-[0_0_10px_rgba(79,70,229,0.1)]"
+                      >
+                        Copy Gemini MCP Audit
+                      </button>
+
+                      {/* Post-Merge Wrap Up */}
+                      <div className="pt-4 mt-4 border-t border-neutral-800/50">
+                        <div className="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2 text-center">
+                          Post-Merge Action
+                        </div>
+                        <button
+                          onClick={() => handleCopyCommand(`/pm-finalize ${selectedFlow.flow_id}`)}
+                          className="w-full py-2 bg-emerald-900/20 hover:bg-emerald-900/40 text-emerald-400 text-xs font-mono rounded border border-emerald-800/50 transition-colors"
+                          title="Run only after audits pass and PR is merged"
+                        >
+                          [ /pm-finalize ] (Audits Clear)
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  {(selectedFlow.status === 'STABLE' || selectedFlow.status === 'INTEGRATION') && (
-                    <div className="space-y-2">
-                      <button 
-                        onClick={() => handleCopyCommand(`coda slice review ${selectedFlow.flow_id}`)}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded transition-colors shadow-[0_0_15px_rgba(5,150,105,0.2)]"
-                      >
-                        [ coda slice review ]
-                      </button>
-                      <button 
-                        onClick={() => handleCopyCommand(`/pm-finalize ${selectedFlow.flow_id}`)}
-                        className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs font-mono rounded border border-neutral-600 transition-colors"
-                      >
-                        [ /pm-finalize ]
-                      </button>
-                    </div>
-                  )}
+                  {/* The universal escape hatch */}
+                  <button
+                    onClick={handleEject}
+                    className="w-full py-2 mt-6 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-700/50 text-[10px] font-mono font-bold rounded transition-colors uppercase tracking-widest"
+                  >
+                    [ Eject to Terminal ]
+                  </button>
                 </div>
 
              </div>
